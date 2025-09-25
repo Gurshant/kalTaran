@@ -102,7 +102,7 @@ def run_sequence():
     step_done[1] = False
     step_done[2] = False
 
-def button_pressed():
+def button_pressed(channel):
     global running, paused, restart_step, sequence_thread
 
     if not running:
