@@ -5,15 +5,14 @@ import os
 import threading
 
 class RelayAudioController:
-    def __init__(self, relay_pins, audio_files, button_pin):
+    def __init__(self, relay_pins, audio_files):
         self.RELAY_PINS = relay_pins
         self.AUDIO_FILES = audio_files
-        self.BUTTON_PIN = button_pin
 
-        # State flags
+        # State
         self.running = False
         self.paused = False
-        self.current_step = 1
+        self.current_step = 0
         self.restart_step = False
 
         # Thread
@@ -24,8 +23,6 @@ class RelayAudioController:
         for pin in self.RELAY_PINS:
             GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.HIGH)  # relays off
-        GPIO.setup(self.BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.BUTTON_PIN, GPIO.FALLING, callback=self.button_pressed, bouncetime=500)
 
         # Pygame audio
         pygame.mixer.init()
@@ -40,6 +37,8 @@ class RelayAudioController:
             time.sleep(0.1)
 
     def run_step(self, step):
+        """Run a single step"""
+        self.current_step = step
         while True:
             if self.paused:
                 time.sleep(0.1)
@@ -49,14 +48,12 @@ class RelayAudioController:
                 self.restart_step = False
                 print(f"Step {step} restarting")
 
-            # Turn on the step's relay, turn off others
+            # Turn on current relay, turn off others
             for i, pin in enumerate(self.RELAY_PINS):
                 GPIO.output(pin, GPIO.LOW if i == step-1 else GPIO.HIGH)
 
             print(f"Step {step}: Light {step} + Audio {step}")
             self.play_audio(self.AUDIO_FILES[step-1])
-            if self.paused:
-                continue
             time.sleep(2)
             break
 
@@ -71,26 +68,33 @@ class RelayAudioController:
         # Turn off all relays
         for pin in self.RELAY_PINS:
             GPIO.output(pin, GPIO.HIGH)
+
         print("Sequence complete")
         self.running = False
         self.paused = False
-        self.current_step = 1
+        self.current_step = 0
 
-    def button_pressed(self, channel):
+    def start_or_resume(self):
+        """Start or resume the sequence"""
         if not self.running:
             self.sequence_thread = threading.Thread(target=self.run_sequence)
             self.sequence_thread.start()
         else:
-            self.paused = not self.paused
             if self.paused:
-                print(f"Paused at step {self.current_step}")
-                pygame.mixer.music.pause()
-                for pin in self.RELAY_PINS:
-                    GPIO.output(pin, GPIO.HIGH)
-            else:
                 print(f"Resuming step {self.current_step}")
-                pygame.mixer.music.unpause()
+                self.paused = False
                 self.restart_step = True
+                pygame.mixer.music.unpause()
+            else:
+                print(f"Already running step {self.current_step}")
+
+    def pause(self):
+        if self.running and not self.paused:
+            print(f"Pausing at step {self.current_step}")
+            self.paused = True
+            pygame.mixer.music.pause()
+            for pin in self.RELAY_PINS:
+                GPIO.output(pin, GPIO.HIGH)
 
     def cleanup(self):
         # Turn off all relays
@@ -108,18 +112,26 @@ if __name__ == "__main__":
     AUDIO_FILES = [
         os.path.expanduser("~/Desktop/Test.wav"),
         os.path.expanduser("~/Desktop/test2.wav"),
-        os.path.expanduser("~/Desktop/test2.wav")
+        os.path.expanduser("~/Desktop/test3.wav")
     ]
-    BUTTON_PIN = 21
 
-    controller = RelayAudioController(RELAY_PINS, AUDIO_FILES, BUTTON_PIN)
+    controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
 
-    print("Ready. Press button to start/pause/resume current step.")
+    print("Controls: '1' = Start/Resume, '2' = Pause, '9' = Exit.")
 
     try:
         while True:
-            time.sleep(0.1)
+            key = input("Enter command: ").strip()
+            if key == '1':
+                controller.start_or_resume()
+            elif key == '2':
+                controller.pause()
+            elif key == '9':
+                print("Exiting program...")
+                break
+            else:
+                print("Invalid input. Press '1' to start/resume, '2' to pause, '9' to exit.")
     except KeyboardInterrupt:
-        print("Exiting...")
+        print("\nKeyboardInterrupt received. Exiting...")
     finally:
         controller.cleanup()
