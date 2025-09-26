@@ -61,8 +61,17 @@ class RelayAudioController:
 
         self.current_step = 0
         self.running = False
-        # Turn all off when sequence ends
-        self.set_all_relays(False)
+
+        # After last step: all lights ON for 1 minute
+        if start_step <= len(self.RELAY_PINS):
+            print("All lights ON for 1 minute...")
+            self.set_all_relays(True)
+            for _ in range(60):  # check once per second so we can stop early
+                if not self.running:  # allow stop_sequence() to break out
+                    break
+                time.sleep(1)
+            print("Turning all lights OFF")
+            self.set_all_relays(False)
 
     def start(self, start_step=1):
         if not self.running:
@@ -107,8 +116,7 @@ if __name__ == "__main__":
 
     controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
 
-    print("Controls: '1-3' = Play from that step to end, '7' = All lights ON, "
-          "'8' = All lights OFF, '9' = Play from start.")
+    print("Controls: '1-3' = Play from that step to end, '7' = All lights ON, '8' = All lights OFF, '9' = Play from start.")
 
     try:
         while True:
