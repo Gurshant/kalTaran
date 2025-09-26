@@ -108,7 +108,7 @@ if __name__ == "__main__":
     AUDIO_FILES = [
         os.path.expanduser("~/Desktop/Test.wav"),
         os.path.expanduser("~/Desktop/test2.wav"),
-        os.path.expanduser("~/Desktop/test3.wav")
+        os.path.expanduser("~/Desktop/test2.wav")
     ]
     BUTTON_PIN = 21
 
