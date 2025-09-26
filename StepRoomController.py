@@ -28,6 +28,8 @@ def getch():
 
 class StepRoomController:
     def __init__(self, relay_pins, audio_files, lights_on_duration=60):
+        GPIO.cleanup()
+        GPIO.setmode(GPIO.BCM) 
         self.RELAY_PINS = relay_pins
         self.AUDIO_FILES = audio_files
         self.lights_on_duration = lights_on_duration

@@ -26,6 +26,8 @@ def getch():
 
 class TimedRoomController:
     def __init__(self, gpio_schedule, audio_file, lights_on_duration=60):
+        GPIO.cleanup()
+        GPIO.setmode(GPIO.BCM) 
         self.gpio_schedule = gpio_schedule
         self.audio_file = audio_file
         self.lights_on_duration = lights_on_duration
