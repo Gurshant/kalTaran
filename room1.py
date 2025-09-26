@@ -28,9 +28,10 @@ def getch():
     return ch
 
 class RelayAudioController:
-    def __init__(self, relay_pins, audio_files):
+    def __init__(self, relay_pins, audio_files, lights_on_duration=60):
         self.RELAY_PINS = relay_pins
         self.AUDIO_FILES = audio_files
+        self.lights_on_duration = lights_on_duration
 
         self.running = False
         self.current_step = 0
@@ -49,7 +50,7 @@ class RelayAudioController:
         pygame.mixer.music.load(file_path)
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy() and self.running:
-            time.sleep(0.1)
+            time.sleep(0.2)
         pygame.mixer.music.stop()
 
     def run_sequence(self, start_step=1):
@@ -66,15 +67,15 @@ class RelayAudioController:
 
             print(f"Step {step}: Light {step} + Audio {step}")
             self.play_audio(self.AUDIO_FILES[step - 1])
-            time.sleep(0.1)
+            time.sleep(0.2)
 
         self.current_step = 0
 
         # After last step: keep lights ON for 1 minute
         if self.running:  # only if not stopped manually
-            print("All lights ON for 1 minute...")
+            print(f"All lights ON for {self.lights_on_duration} seconds...")
             self.set_all_relays(True)
-            for _ in range(60):
+            for _ in range(self.lights_on_duration):
                 if not self.running:  # allow stop_sequence() to break
                     break
                 time.sleep(1)
