@@ -7,6 +7,13 @@ import sys
 import termios
 import tty
 
+try:
+    from config_local import RELAY_PINS, AUDIO_FILES
+    print("Loaded local override config.")
+except ImportError:
+    from config_default import RELAY_PINS, AUDIO_FILES
+    print("Loaded default config.")
+
 # Function to read single key without Enter
 def getch():
     fd = sys.stdin.fileno()
@@ -106,14 +113,6 @@ class RelayAudioController:
 
 
 if __name__ == "__main__":
-    RELAY_PINS = [5, 13, 19]
-
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    AUDIO_FILES = [
-        os.path.join(script_dir, "room2", "test.wav"),
-        os.path.join(script_dir, "room2", "test2.wav"),
-        os.path.join(script_dir, "room2", "test3.wav"),
-    ]
 
     controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
 
@@ -122,7 +121,8 @@ if __name__ == "__main__":
     try:
         while True:
             key = getch()
-            if key in ["1", "2", "3"]:
+            valid_keys = [str(i) for i in range(1, len(RELAY_PINS) + 1)]
+            if key in valid_keys:
                 controller.stop_sequence()
                 controller.start(int(key))
             elif key == "7":
