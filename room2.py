@@ -124,9 +124,23 @@ class RelayAudioController:
         pygame.mixer.quit()
         GPIO.cleanup()
         print("Cleanup complete. Exiting.")
+    
+    def stop_sequence(self):
+        """Stops the current sequence thread safely."""
+        if self.sequence_thread and self.sequence_thread.is_alive():
+            self.running = False
+            self.paused = False
+            self.restart_step = False
+            self.skip_step = False
+            self.sequence_thread.join(timeout=0.5)  # wait briefly for thread to finish
+
+    def set_all_relays(self, state):
+        """Set all relays ON (LOW) or OFF (HIGH)."""
+        for pin in self.RELAY_PINS:
+            GPIO.output(pin, GPIO.LOW if state else GPIO.HIGH)
 
 if __name__ == "__main__":
-    RELAY_PINS = [5, 13, 19]  # BCM GPIO numbers
+    RELAY_PINS = [5, 13, 19]
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
     AUDIO_FILES = [
@@ -137,28 +151,23 @@ if __name__ == "__main__":
 
     controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
 
-    print("Controls: '1' = Start/Resume, '2' = Pause, '7' = Play/Pause toggle, '8' = Restart, '9' = Exit.")
+    print("Controls: '7' = All lights ON, '8' = All lights OFF, '9' = Play from start.")
 
     try:
         while True:
             key = getch()
-            if key == '1':
-                controller.start_or_resume()
-            elif key == '2':
-                controller.pause()
-            elif key == '7':
-                if controller.paused:
-                    controller.start_or_resume()  # resume if paused
-                else:
-                    controller.pause()  # pause if running
+            if key == '7':
+                print("Killing sequence and turning all lights ON")
+                controller.stop_sequence()
+                controller.set_all_relays(True)
             elif key == '8':
-                print("Restarting sequence from the beginning...")
-                controller.pause()   # pause current sequence
-                controller.running = False  # stop current thread
-                controller.start_or_resume()  # start fresh
+                print("Killing sequence and turning all lights OFF")
+                controller.stop_sequence()
+                controller.set_all_relays(False)
             elif key == '9':
-                print("Exiting program...")
-                break
+                print("Killing everything and starting sequence from step 1")
+                controller.stop_sequence()
+                controller.start_or_resume()
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt received. Exiting...")
     finally:
