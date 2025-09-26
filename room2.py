@@ -129,9 +129,9 @@ class RelayAudioController:
 if __name__ == "__main__":
     RELAY_PINS = [5, 13, 19]  # BCM GPIO numbers
     AUDIO_FILES = [
-        os.path.expanduser("~/Desktop/Test.wav"),
-        os.path.expanduser("~/Desktop/test2.wav"),
-        os.path.expanduser("~/Desktop/test3.wav")
+        "./room2/test.wav",
+        "./room2/test2.wav",
+        "./room2/test3.wav"
     ]
 
     controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
