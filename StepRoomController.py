@@ -1,7 +1,6 @@
 import RPi.GPIO as GPIO
 import time
 import pygame
-import os
 import threading
 import sys
 import termios
@@ -27,7 +26,7 @@ def getch():
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return ch
 
-class RelayAudioController:
+class StepRoomController:
     def __init__(self, relay_pins, audio_files, lights_on_duration=60):
         self.RELAY_PINS = relay_pins
         self.AUDIO_FILES = audio_files
@@ -117,7 +116,7 @@ class RelayAudioController:
 
 if __name__ == "__main__":
 
-    controller = RelayAudioController(RELAY_PINS, AUDIO_FILES, lights_on_duration=ALL_LIGHTS_ON_DURATION)
+    controller = StepRoomController(RELAY_PINS, AUDIO_FILES, lights_on_duration=ALL_LIGHTS_ON_DURATION)
 
     print("Controls: '1-3' = Play from that step to end, '7' = All lights ON, '8' = All lights OFF, '9' = Play from start.")
 
