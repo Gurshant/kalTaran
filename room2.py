@@ -128,10 +128,12 @@ class RelayAudioController:
 
 if __name__ == "__main__":
     RELAY_PINS = [5, 13, 19]  # BCM GPIO numbers
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     AUDIO_FILES = [
-        "./room2/test.wav",
-        "./room2/test2.wav",
-        "./room2/test3.wav"
+        os.path.join(script_dir, "room2", "test.wav"),
+        os.path.join(script_dir, "room2", "test2.wav"),
+        os.path.join(script_dir, "room2", "test3.wav")
     ]
 
     controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
