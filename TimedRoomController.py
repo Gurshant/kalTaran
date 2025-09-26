@@ -10,7 +10,8 @@ try:
     from config_local import RELAY_SCHEDULE, AUDIO_FILE, LIGHTS_ON_DURATION
     print("Loaded local override config.")
 except ImportError:
-    from config_default import RELAY_SCHEDULE, AUDIO_FILE, LIGHTS_ON_DURATION
+    from config_default import RELAY_SCHEDULE, AUDIO_FILE
+    LIGHTS_ON_DURATION = 60  # default 1 minute
     print("Loaded default config.")
 
 def getch():
@@ -18,20 +19,22 @@ def getch():
     old_settings = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
-        ch = sys.stdin.read(1)
+        return sys.stdin.read(1)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    return ch
+
 
 class TimedRoomController:
     def __init__(self, gpio_schedule, audio_file, lights_on_duration=60):
         self.gpio_schedule = gpio_schedule
         self.audio_file = audio_file
         self.lights_on_duration = lights_on_duration
+
         self.running = False
         self.thread = None
 
-        # Setup GPIO
+        # GPIO setup
+        GPIO.cleanup()
         GPIO.setmode(GPIO.BCM)
         for step in gpio_schedule:
             GPIO.setup(step["pin"], GPIO.OUT)
@@ -85,7 +88,7 @@ class TimedRoomController:
         else:
             print("Sequence already running")
 
-    def stop(self):
+    def stop_sequence(self):
         self.running = False
         pygame.mixer.music.stop()
         for step in self.gpio_schedule:
@@ -98,7 +101,7 @@ class TimedRoomController:
             GPIO.output(step["pin"], GPIO.LOW if state_on else GPIO.HIGH)
 
     def cleanup(self):
-        self.stop()
+        self.stop_sequence()
         pygame.mixer.quit()
         GPIO.cleanup()
         print("Cleanup complete. Exiting.")
@@ -107,24 +110,24 @@ class TimedRoomController:
 if __name__ == "__main__":
     controller = TimedRoomController(RELAY_SCHEDULE, AUDIO_FILE, LIGHTS_ON_DURATION)
 
-    print("Controls: '7' = All lights ON, '8' = All lights OFF, '9' = Play from start")
+    print("Controls: '7' = All lights ON, '8' = All lights OFF, '9'/'1' = Play from start")
 
     try:
         while True:
             key = getch()
             if key == "7":
                 print("Kill sequence + all lights ON")
-                controller.stop()
+                controller.stop_sequence()
                 controller.set_all_relays(True)
             elif key == "8":
                 print("Kill sequence + all lights OFF")
-                controller.stop()
+                controller.stop_sequence()
                 controller.set_all_relays(False)
-            elif key == "9" or key == "1":
+            elif key in ["9", "1"]:
                 print("Kill everything and restart from start")
-                controller.stop()
+                controller.stop_sequence()
                 controller.start()
     except KeyboardInterrupt:
-        print("KeyboardInterrupt received. Exiting...")
+        print("\nKeyboardInterrupt received. Exiting...")
     finally:
         controller.cleanup()

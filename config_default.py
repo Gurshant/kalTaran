@@ -12,8 +12,6 @@ AUDIO_FILES = [
     os.path.join(script_dir, "room2", "test3.wav"),
 ]
 
-
-
 RELAY_SCHEDULE = [
     {"pin": 5, "on_time": 0, "off_time": 3},
     {"pin": 13, "on_time": 1, "off_time": 5},
