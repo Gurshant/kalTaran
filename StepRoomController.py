@@ -35,11 +35,7 @@ class StepRoomController:
         self.running = False
         self.current_step = 0
         self.sequence_thread = None
-        try:
-            GPIO.cleanup()        # reset GPIO from previous runs
-        except RuntimeError:
-            # if GPIO hasn't been initialized yet, ignore
-            pass
+
         # GPIO setup
         GPIO.setmode(GPIO.BCM)
         for pin in self.RELAY_PINS:
