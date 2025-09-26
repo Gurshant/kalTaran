@@ -125,7 +125,6 @@ class RelayAudioController:
         GPIO.cleanup()
         print("Cleanup complete. Exiting.")
 
-
 if __name__ == "__main__":
     RELAY_PINS = [5, 13, 19]  # BCM GPIO numbers
     
@@ -138,7 +137,7 @@ if __name__ == "__main__":
 
     controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
 
-    print("Controls: '1' = Start/Resume, '2' = Pause, '7' = Skip step, '9' = Exit.")
+    print("Controls: '1' = Start/Resume, '2' = Pause, '7' = Play/Pause toggle, '8' = Restart, '9' = Exit.")
 
     try:
         while True:
@@ -148,7 +147,15 @@ if __name__ == "__main__":
             elif key == '2':
                 controller.pause()
             elif key == '7':
-                controller.skip()
+                if controller.paused:
+                    controller.start_or_resume()  # resume if paused
+                else:
+                    controller.pause()  # pause if running
+            elif key == '8':
+                print("Restarting sequence from the beginning...")
+                controller.pause()   # pause current sequence
+                controller.running = False  # stop current thread
+                controller.start_or_resume()  # start fresh
             elif key == '9':
                 print("Exiting program...")
                 break
