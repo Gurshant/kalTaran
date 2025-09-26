@@ -139,6 +139,26 @@ class RelayAudioController:
         for pin in self.RELAY_PINS:
             GPIO.output(pin, GPIO.LOW if state else GPIO.HIGH)
 
+    def play_from_step(self, start_step):
+        """Play from a given step to the last step."""
+        if start_step < 1 or start_step > len(self.RELAY_PINS):
+            print(f"Invalid start step {start_step}")
+            return
+
+        self.running = True
+        for step in range(start_step, len(self.RELAY_PINS)+1):
+            self.current_step = step
+            for i, pin in enumerate(self.RELAY_PINS):
+                GPIO.output(pin, GPIO.LOW if i == step-1 else GPIO.HIGH)
+
+            print(f"Step {step}: Light {step} + Audio {step}")
+            self.play_audio(self.AUDIO_FILES[step-1])
+            time.sleep(2)
+
+        self.current_step = 0
+        self.running = False
+
+
 if __name__ == "__main__":
     RELAY_PINS = [5, 13, 19]
     
@@ -151,12 +171,16 @@ if __name__ == "__main__":
 
     controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
 
-    print("Controls: '7' = All lights ON, '8' = All lights OFF, '9' = Play from start.")
+    print("Controls: '1-3' = Play from that step to end, '7' = All lights ON, '8' = All lights OFF, '9' = Play from start.")
 
     try:
         while True:
             key = getch()
-            if key == '7':
+            if key in ['1', '2', '3']:
+                step = int(key)
+                controller.stop_sequence()
+                controller.play_from_step(step)
+            elif key == '7':
                 print("Killing sequence and turning all lights ON")
                 controller.stop_sequence()
                 controller.set_all_relays(True)
