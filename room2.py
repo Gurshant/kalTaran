@@ -23,18 +23,12 @@ class RelayAudioController:
         self.RELAY_PINS = relay_pins
         self.AUDIO_FILES = audio_files
 
-        # State
         self.running = False
-        self.paused = False
         self.current_step = 0
-        self.restart_step = False
-        self.skip_step = False
-
-        # Thread
         self.sequence_thread = None
 
         # GPIO setup
-        GPIO.setmode(GPIO.BCM)  # use BCM numbering
+        GPIO.setmode(GPIO.BCM)
         for pin in self.RELAY_PINS:
             GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.HIGH)  # relays off
@@ -45,153 +39,95 @@ class RelayAudioController:
     def play_audio(self, file_path):
         pygame.mixer.music.load(file_path)
         pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            if self.paused or self.skip_step:
-                pygame.mixer.music.stop()
-                return
+        while pygame.mixer.music.get_busy() and self.running:
             time.sleep(0.1)
+        pygame.mixer.music.stop()
 
-    def run_step(self, step):
-        self.current_step = step
-        while True:
-            if self.paused:
-                time.sleep(0.1)
-                continue
-            if self.skip_step:
-                self.skip_step = False
-                print(f"Skipping step {step}")
+    def run_sequence(self, start_step=1):
+        self.running = True
+        for step in range(start_step, len(self.RELAY_PINS) + 1):
+            if not self.running:
                 break
 
-            if self.restart_step:
-                self.restart_step = False
-                print(f"Step {step} restarting")
+            self.current_step = step
 
-            # Turn on current relay, turn off others
+            # Relay control: only current step ON
             for i, pin in enumerate(self.RELAY_PINS):
-                GPIO.output(pin, GPIO.LOW if i == step-1 else GPIO.HIGH)
+                GPIO.output(pin, GPIO.LOW if i == step - 1 else GPIO.HIGH)
 
             print(f"Step {step}: Light {step} + Audio {step}")
-            self.play_audio(self.AUDIO_FILES[step-1])
-            time.sleep(2)
-            break
+            self.play_audio(self.AUDIO_FILES[step - 1])
+            time.sleep(0.1)
 
-    def run_sequence(self):
-        self.running = True
-        for step in range(1, len(self.RELAY_PINS)+1):
-            self.restart_step = True
-            self.run_step(step)
-            if self.paused or self.skip_step:
-                continue
-
-        # Turn off all relays
-        for pin in self.RELAY_PINS:
-            GPIO.output(pin, GPIO.HIGH)
-
-        print("Sequence complete")
-        self.running = False
-        self.paused = False
         self.current_step = 0
+        self.running = False
+        # Turn all off when sequence ends
+        self.set_all_relays(False)
 
-    def start_or_resume(self):
+    def start(self, start_step=1):
         if not self.running:
-            self.sequence_thread = threading.Thread(target=self.run_sequence)
+            self.sequence_thread = threading.Thread(
+                target=self.run_sequence, args=(start_step,)
+            )
             self.sequence_thread.start()
-        elif self.paused:
-            print(f"Resuming step {self.current_step}")
-            self.paused = False
-            self.restart_step = True
-            pygame.mixer.music.unpause()
         else:
             print(f"Already running step {self.current_step}")
 
-    def pause(self):
-        if self.running and not self.paused:
-            print(f"Pausing at step {self.current_step}")
-            self.paused = True
-            pygame.mixer.music.pause()
-            for pin in self.RELAY_PINS:
-                GPIO.output(pin, GPIO.HIGH)
-
-    def skip(self):
+    def stop_sequence(self):
+        """Stop audio + relays + sequence thread."""
         if self.running:
-            print(f"Skipping step {self.current_step}")
-            self.skip_step = True
+            print("Stopping sequence...")
+        self.running = False
+        pygame.mixer.music.stop()
+        self.set_all_relays(False)
+        if self.sequence_thread and self.sequence_thread.is_alive():
+            self.sequence_thread.join(timeout=0.5)
+
+    def set_all_relays(self, state_on):
+        """Set all relays ON (LOW) or OFF (HIGH)."""
+        for pin in self.RELAY_PINS:
+            GPIO.output(pin, GPIO.LOW if state_on else GPIO.HIGH)
 
     def cleanup(self):
-        for pin in self.RELAY_PINS:
-            GPIO.output(pin, GPIO.HIGH)
-        pygame.mixer.music.stop()
+        self.stop_sequence()
         pygame.mixer.quit()
         GPIO.cleanup()
         print("Cleanup complete. Exiting.")
-    
-    def stop_sequence(self):
-        """Stops the current sequence thread safely."""
-        if self.sequence_thread and self.sequence_thread.is_alive():
-            self.running = False
-            self.paused = False
-            self.restart_step = False
-            self.skip_step = False
-            self.sequence_thread.join(timeout=0.5)  # wait briefly for thread to finish
-
-    def set_all_relays(self, state):
-        """Set all relays ON (LOW) or OFF (HIGH)."""
-        for pin in self.RELAY_PINS:
-            GPIO.output(pin, GPIO.LOW if state else GPIO.HIGH)
-
-    def play_from_step(self, start_step):
-        """Play from a given step to the last step."""
-        if start_step < 1 or start_step > len(self.RELAY_PINS):
-            print(f"Invalid start step {start_step}")
-            return
-
-        self.running = True
-        for step in range(start_step, len(self.RELAY_PINS)+1):
-            self.current_step = step
-            for i, pin in enumerate(self.RELAY_PINS):
-                GPIO.output(pin, GPIO.LOW if i == step-1 else GPIO.HIGH)
-
-            print(f"Step {step}: Light {step} + Audio {step}")
-            self.play_audio(self.AUDIO_FILES[step-1])
-            time.sleep(2)
-
-        self.current_step = 0
-        self.running = False
 
 
 if __name__ == "__main__":
     RELAY_PINS = [5, 13, 19]
-    
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     AUDIO_FILES = [
         os.path.join(script_dir, "room2", "test.wav"),
         os.path.join(script_dir, "room2", "test2.wav"),
-        os.path.join(script_dir, "room2", "test3.wav")
+        os.path.join(script_dir, "room2", "test3.wav"),
     ]
 
     controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
 
-    print("Controls: '1-3' = Play from that step to end, '7' = All lights ON, '8' = All lights OFF, '9' = Play from start.")
+    print("Controls: '1-3' = Play from that step to end, '7' = All lights ON, "
+          "'8' = All lights OFF, '9' = Play from start.")
 
     try:
         while True:
             key = getch()
-            if key in ['1', '2', '3']:
-                step = int(key)
+            if key in ["1", "2", "3"]:
                 controller.stop_sequence()
-                controller.play_from_step(step)
-            elif key == '7':
-                print("Killing sequence and turning all lights ON")
+                controller.start(int(key))
+            elif key == "7":
+                print("Kill sequence + all lights ON")
                 controller.stop_sequence()
                 controller.set_all_relays(True)
-            elif key == '8':
-                print("Killing sequence and turning all lights OFF")
+            elif key == "8":
+                print("Kill sequence + all lights OFF")
                 controller.stop_sequence()
                 controller.set_all_relays(False)
-            elif key == '9':
-                print("Killing everything and starting sequence from step 1")
+            elif key == "9":
+                print("Kill everything and restart from step 1")
                 controller.stop_sequence()
-                controller.start_or_resume()
+                controller.start(1)
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt received. Exiting...")
     finally:
