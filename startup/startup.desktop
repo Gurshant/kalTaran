@@ -2,6 +2,6 @@
 Type=Application
 Name=StepRoomController
 Comment=Run StepRoomController.py in terminal
-Exec=lxterminal --title "StepRoom" -e ~/Desktop/kaltaran/start.sh
+Exec=lxterminal --title "StepRoom" -e ~/Desktop/kaltaran/startup/startup.sh
 StartupNotify=false
 Terminal=false
