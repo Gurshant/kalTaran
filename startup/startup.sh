@@ -1,5 +1,7 @@
 #!/bin/bash
-sleep 2
+sleep 10
 numlockx on
 python3 ~/Desktop/kaltaran/StepRoomController.py
-exec bash
+
+sleep 2
+wmctrl -a StepRoom
