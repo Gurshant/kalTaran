@@ -126,6 +126,9 @@ if __name__ == "__main__":
                 print("Kill everything and restart from start")
                 controller.stop_sequence()
                 controller.start()
+            elif key.lower() == "q":
+                print("Quit key pressed. Exiting...")
+                break
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt received. Exiting...")
     finally:

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=StepRoomController
+Comment=Run StepRoomController.py in terminal
+Exec=lxterminal -e "bash -c 'python3 /home/pi/Desktop/kaltaran/StepRoomController.py; exec bash'"
+StartupNotify=false
+Terminal=false
