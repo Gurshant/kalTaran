@@ -1,17 +1,18 @@
 import RPi.GPIO as GPIO
 import time
 import pygame
-import os
 import threading
 import sys
 import termios
 import tty
 
 try:
-    from config_local import RELAY_PINS, AUDIO_FILES
+    from config_local import RELAY_PINS, AUDIO_FILES, ALL_LIGHTS_ON_DURATION 
     print("Loaded local override config.")
 except ImportError:
     from config_default import RELAY_PINS, AUDIO_FILES
+    ALL_LIGHTS_ON_DURATION = 60  # default 1 minute
+
     print("Loaded default config.")
 
 # Function to read single key without Enter
@@ -25,10 +26,11 @@ def getch():
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return ch
 
-class RelayAudioController:
-    def __init__(self, relay_pins, audio_files):
+class StepRoomController:
+    def __init__(self, relay_pins, audio_files, lights_on_duration=60):
         self.RELAY_PINS = relay_pins
         self.AUDIO_FILES = audio_files
+        self.lights_on_duration = lights_on_duration
 
         self.running = False
         self.current_step = 0
@@ -47,7 +49,7 @@ class RelayAudioController:
         pygame.mixer.music.load(file_path)
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy() and self.running:
-            time.sleep(0.1)
+            time.sleep(0.2)
         pygame.mixer.music.stop()
 
     def run_sequence(self, start_step=1):
@@ -64,15 +66,15 @@ class RelayAudioController:
 
             print(f"Step {step}: Light {step} + Audio {step}")
             self.play_audio(self.AUDIO_FILES[step - 1])
-            time.sleep(0.1)
+            time.sleep(0.2)
 
         self.current_step = 0
 
         # After last step: keep lights ON for 1 minute
         if self.running:  # only if not stopped manually
-            print("All lights ON for 1 minute...")
+            print(f"All lights ON for {self.lights_on_duration} seconds...")
             self.set_all_relays(True)
-            for _ in range(60):
+            for _ in range(self.lights_on_duration):
                 if not self.running:  # allow stop_sequence() to break
                     break
                 time.sleep(1)
@@ -114,7 +116,7 @@ class RelayAudioController:
 
 if __name__ == "__main__":
 
-    controller = RelayAudioController(RELAY_PINS, AUDIO_FILES)
+    controller = StepRoomController(RELAY_PINS, AUDIO_FILES, lights_on_duration=ALL_LIGHTS_ON_DURATION)
 
     print("Controls: '1-3' = Play from that step to end, '7' = All lights ON, '8' = All lights OFF, '9' = Play from start.")
 
@@ -137,6 +139,9 @@ if __name__ == "__main__":
                 print("Kill everything and restart from step 1")
                 controller.stop_sequence()
                 controller.start(1)
+            elif key.lower() == "q":
+                print("Quit key pressed. Exiting...")
+                break
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt received. Exiting...")
     finally:
