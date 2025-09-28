@@ -9,5 +9,5 @@ lxterminal -e wmctrl -a kalTaran &
 cd ~/Desktop/kalTaran || exit
 git pull
 
-python3 ~/Desktop/kaltaran/StepRoomController.py 
+python3 ~/Desktop/kalTaran/StepRoomController.py 
 
