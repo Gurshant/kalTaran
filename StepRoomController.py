@@ -7,11 +7,11 @@ import termios
 import tty
 
 try:
-    from config_local import RELAY_PINS, AUDIO_FILES, ALL_LIGHTS_ON_DURATION 
+    from config_local import RELAY_PINS, AUDIO_FILES, LIGHTS_ON_DURATION 
     print("Loaded local override config.")
 except ImportError:
     from config_default import RELAY_PINS, AUDIO_FILES
-    ALL_LIGHTS_ON_DURATION = 60  # default 1 minute
+    LIGHTS_ON_DURATION = 60  # default 1 minute
 
     print("Loaded default config.")
 
@@ -116,7 +116,7 @@ class StepRoomController:
 
 if __name__ == "__main__":
 
-    controller = StepRoomController(RELAY_PINS, AUDIO_FILES, lights_on_duration=ALL_LIGHTS_ON_DURATION)
+    controller = StepRoomController(RELAY_PINS, AUDIO_FILES, lights_on_duration=LIGHTS_ON_DURATION)
 
     print("Controls: '1-3' = Play from that step to end, '7' = All lights ON, '8' = All lights OFF, '9' = Play from start.")
 
