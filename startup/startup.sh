@@ -1,4 +1,10 @@
 #!/bin/bash
-python3 ~/Desktop/kaltaran/StepRoomController.py &
 
-lxterminal -e wmctrl -a StepRoom
+sleep 5
+
+numlockx on 
+
+lxterminal -e wmctrl -a StepRoom &
+
+python3 ~/Desktop/kaltaran/StepRoomController.py 
+
