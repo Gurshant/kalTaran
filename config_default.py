@@ -14,8 +14,8 @@ AUDIO_FILES = [
 
 RELAY_SCHEDULE = [
     {"pin": 5, "on_time": 0, "off_time": 3},
-    {"pin": 6, "on_time": 1, "off_time": 5},
-    {"pin": 13, "on_time": 2, "off_time": 6},
+    {"pin": 13, "on_time": 1, "off_time": 5},
+    {"pin": 19, "on_time": 2, "off_time": 6},
 ]
 
 # Audio file relative to this script
