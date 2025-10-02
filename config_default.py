@@ -7,9 +7,9 @@ RELAY_PINS = [5, 13, 19]
 # Audio files relative to this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
 AUDIO_FILES = [
-    os.path.join(script_dir, "room2", "test.wav"),
-    os.path.join(script_dir, "room2", "test2.wav"),
-    os.path.join(script_dir, "room2", "test3.wav"),
+    os.path.join(script_dir, "audio", "room2", "part1.wav"),
+    os.path.join(script_dir, "audio", "room2", "part2.wav"),
+    os.path.join(script_dir, "audio", "room2", "part3.wav"),
 ]
 
 RELAY_SCHEDULE = [
@@ -20,7 +20,6 @@ RELAY_SCHEDULE = [
 
 # Audio file relative to this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
-AUDIO_FILE = os.path.join(script_dir, "room2", "test.wav")
-
+AUDIO_FILE = os.path.join(script_dir, "audio", "room2", "part3.wav")
 # How long all lights stay ON at the end (in seconds)
 LIGHTS_ON_DURATION = 60
