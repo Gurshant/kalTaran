@@ -38,3 +38,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 AUDIO_FILE = os.path.join(script_dir, "audio", "room2", "part3.wav")
 # How long all lights stay ON at the end (in seconds)
 LIGHTS_ON_DURATION = 60
+
+# Pin for the single light that turns on at the end of the sequence.
+# If left as None, it falls back to turning on all
+FINALE_PIN = 26
