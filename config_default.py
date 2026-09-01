@@ -18,6 +18,21 @@ RELAY_SCHEDULE = [
     {"pin": 19, "on_time": 2, "off_time": 6},
 ]
 
+# --- Actuators (new) ---
+# Each actuator needs TWO pins: one that extends it, one that retracts it
+# (a standard 2-relay reversing setup). Since these actuators have built-in
+# limit switches that self-stop at full travel and stop itself
+# ACTUATOR_SCHEDULE = [
+#     {
+#         "extend_pin": 20,
+#         "retract_pin": 21,
+#         "expand_time": 2.0,    # start extending 2s into the sequence
+#         "contract_time": 8.0,  # start retracting 8s in (fully out well before this)
+#         "expand_duration": 3.0,        # OPTIONAL - see below
+#         "contract_duration": 3.0,      # OPTIONAL - see below
+#     },
+# ]
+
 # Audio file relative to this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
 AUDIO_FILE = os.path.join(script_dir, "audio", "room2", "part3.wav")
