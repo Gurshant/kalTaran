@@ -7,12 +7,17 @@ import termios
 import tty
 
 try:
-    from config_local import RELAY_SCHEDULE, AUDIO_FILE, LIGHTS_ON_DURATION
+    import config_local as _cfg
     print("Loaded local override config.")
 except ImportError:
-    from config_default import RELAY_SCHEDULE, AUDIO_FILE
-    LIGHTS_ON_DURATION = 60  # default 1 minute
+    import config_default as _cfg
     print("Loaded default config.")
+
+RELAY_SCHEDULE = _cfg.RELAY_SCHEDULE
+AUDIO_FILE = _cfg.AUDIO_FILE
+ACTUATOR_SCHEDULE = getattr(_cfg, "ACTUATOR_SCHEDULE", [])
+LIGHTS_ON_DURATION = getattr(_cfg, "LIGHTS_ON_DURATION", 60)
+FINALE_PIN = getattr(_cfg, "FINALE_PIN", None)
 
 def getch():
     fd = sys.stdin.fileno()
@@ -23,21 +28,80 @@ def getch():
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
+def build_actuator_steps(actuator_schedule):
+    if not actuator_schedule:
+        return []
+
+    steps = []
+    for act in actuator_schedule:
+        name = act.get("name", f"actuator_{act['extend_pin']}_{act['retract_pin']}")
+        expand_start = act["expand_time"]
+        contract_start = act["contract_time"]
+
+        if contract_start <= expand_start:
+            raise ValueError(
+                f"Actuator '{name}': contract_time ({contract_start}s) must be "
+                f"after expand_time ({expand_start}s)."
+            )
+
+        # Default: extend relay runs until it's time to retract (self-stops
+        # at full travel via the limit switch well before that, if it gets there first).
+        expand_end = act.get("expand_duration")
+        expand_end = expand_start + expand_end if expand_end is not None else contract_start
+
+        if expand_end > contract_start:
+            raise ValueError(
+                f"Actuator '{name}': expand window ends at {expand_end}s, which is "
+                f"after contract_time ({contract_start}s)."
+            )
+
+        # Default: retract relay runs until the end of the sequence (self-stops
+        # at full travel via the limit switch); cleanup/stop_sequence will cut
+        # power to it regardless.
+        contract_duration = act.get("contract_duration")
+        contract_end = contract_start + contract_duration if contract_duration is not None else float("inf")
+
+        steps.append({
+            "type": "actuator",
+            "role": "extend",
+            "name": name,
+            "pin": act["extend_pin"],
+            "on_time": expand_start,
+            "off_time": expand_end,
+        })
+        steps.append({
+            "type": "actuator",
+            "role": "retract",
+            "name": name,
+            "pin": act["retract_pin"],
+            "on_time": contract_start,
+            "off_time": contract_end,
+        })
+    return steps
+
 
 class TimedRoomController:
-    def __init__(self, gpio_schedule, audio_file, lights_on_duration=60):
-        self.gpio_schedule = gpio_schedule
+    def __init__(self, relay_schedule, actuator_schedule, audio_file, lights_on_duration=60, finale_pin=None):
+        light_steps = [dict(step, type="light") for step in relay_schedule]
+        actuator_steps = build_actuator_steps(actuator_schedule)
+
+        self.gpio_schedule = light_steps + actuator_steps
         self.audio_file = audio_file
         self.lights_on_duration = lights_on_duration
+        self.finale_pin = finale_pin
 
         self.running = False
         self.thread = None
 
         # GPIO setup
+        self.all_pins = {step["pin"] for step in self.gpio_schedule}
+        if self.finale_pin is not None:
+            self.all_pins.add(self.finale_pin)
+
         GPIO.setmode(GPIO.BCM)
-        for step in gpio_schedule:
-            GPIO.setup(step["pin"], GPIO.OUT)
-            GPIO.output(step["pin"], GPIO.HIGH)
+        for pin in self.all_pins:
+            GPIO.setup(pin, GPIO.OUT)
+            GPIO.output(pin, GPIO.HIGH)
 
         # Setup audio
         pygame.mixer.init()
@@ -65,17 +129,27 @@ class TimedRoomController:
                     step["activated"] = False
             time.sleep(0.01)
 
-        # After audio ends, all lights ON for configured duration
+        # After audio ends, only the LIGHT pins go on
         if self.running:
-            print(f"All lights ON for {self.lights_on_duration} seconds...")
-            for step in self.gpio_schedule:
-                GPIO.output(step["pin"], GPIO.LOW)
+            if self.finale_pin is not None:
+                finale_pins = [self.finale_pin]
+                print(f"Finale light ON for {self.lights_on_duration} seconds...")
+            else:
+                finale_pins = [s["pin"] for s in self.gpio_schedule if s["type"] == "light"]
+                print(f"All lights ON for {self.lights_on_duration} seconds...")
+
+            for pin in finale_pins:
+                GPIO.output(pin, GPIO.LOW)
             for _ in range(self.lights_on_duration):
                 if not self.running:
                     break
                 time.sleep(1)
-            print("Turning all lights OFF")
-            for step in self.gpio_schedule:
+            print("Turning finale light(s) OFF")
+            for pin in finale_pins:
+                GPIO.output(pin, GPIO.HIGH)
+
+        for step in self.gpio_schedule:
+            if step["type"] == "actuator":
                 GPIO.output(step["pin"], GPIO.HIGH)
 
         self.running = False
@@ -90,13 +164,15 @@ class TimedRoomController:
     def stop_sequence(self):
         self.running = False
         pygame.mixer.music.stop()
-        for step in self.gpio_schedule:
-            GPIO.output(step["pin"], GPIO.HIGH)
+        for pin in self.all_pins:
+            GPIO.output(pin, GPIO.HIGH)
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=0.5)
 
     def set_all_relays(self, state_on):
         for step in self.gpio_schedule:
+            if step["type"] != "light":
+                continue
             GPIO.output(step["pin"], GPIO.LOW if state_on else GPIO.HIGH)
 
     def cleanup(self):
@@ -105,9 +181,10 @@ class TimedRoomController:
         GPIO.cleanup()
         print("Cleanup complete. Exiting.")
 
-
 if __name__ == "__main__":
-    controller = TimedRoomController(RELAY_SCHEDULE, AUDIO_FILE, LIGHTS_ON_DURATION)
+    controller = TimedRoomController(
+        RELAY_SCHEDULE, ACTUATOR_SCHEDULE, AUDIO_FILE, LIGHTS_ON_DURATION, finale_pin=FINALE_PIN
+    )
 
     print("Controls: '7' = All lights ON, '8' = All lights OFF, '9'/'1' = Play from start")
 
