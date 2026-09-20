@@ -19,6 +19,9 @@ ACTUATOR_SCHEDULE = getattr(_cfg, "ACTUATOR_SCHEDULE", [])
 LIGHTS_ON_DURATION = getattr(_cfg, "LIGHTS_ON_DURATION", 60)
 FINALE_PIN = getattr(_cfg, "FINALE_PIN", None)
 
+# Duration (seconds) for the manual extend-all / retract-all key commands.
+MANUAL_ACTUATOR_DURATION = 10
+
 def getch():
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -38,26 +41,10 @@ def build_actuator_steps(actuator_schedule):
         expand_start = act["expand_time"]
         contract_start = act["contract_time"]
 
-        if contract_start <= expand_start:
-            raise ValueError(
-                f"Actuator '{name}': contract_time ({contract_start}s) must be "
-                f"after expand_time ({expand_start}s)."
-            )
-
-        # Default: extend relay runs until it's time to retract (self-stops
-        # at full travel via the limit switch well before that, if it gets there first).
         expand_end = act.get("expand_duration")
         expand_end = expand_start + expand_end if expand_end is not None else contract_start
+        expand_end = min(expand_end, contract_start)  # never overlap with retract
 
-        if expand_end > contract_start:
-            raise ValueError(
-                f"Actuator '{name}': expand window ends at {expand_end}s, which is "
-                f"after contract_time ({contract_start}s)."
-            )
-
-        # Default: retract relay runs until the end of the sequence (self-stops
-        # at full travel via the limit switch); cleanup/stop_sequence will cut
-        # power to it regardless.
         contract_duration = act.get("contract_duration")
         contract_end = contract_start + contract_duration if contract_duration is not None else float("inf")
 
@@ -86,12 +73,16 @@ class TimedRoomController:
         actuator_steps = build_actuator_steps(actuator_schedule)
 
         self.gpio_schedule = light_steps + actuator_steps
+        self.actuator_schedule = actuator_schedule  # raw list, used by manual extend/retract-all controls
         self.audio_file = audio_file
         self.lights_on_duration = lights_on_duration
         self.finale_pin = finale_pin
 
         self.running = False
         self.thread = None
+
+        self.actuator_thread = None
+        self._actuator_cancel = threading.Event()
 
         # GPIO setup
         self.all_pins = {step["pin"] for step in self.gpio_schedule}
@@ -161,13 +152,43 @@ class TimedRoomController:
         else:
             print("Sequence already running")
 
+    def _run_actuators(self, role, duration, cancel_event):
+        pins = [
+            act["extend_pin"] if role == "extend" else act["retract_pin"]
+            for act in self.actuator_schedule
+        ]
+        opposite_pins = [
+            act["retract_pin"] if role == "extend" else act["extend_pin"]
+            for act in self.actuator_schedule
+        ]
+
+        if not cancel_event.wait(duration):
+            for pin in pins:
+                GPIO.output(pin, GPIO.HIGH)
+
+    def activate_actuators(self, role, duration=MANUAL_ACTUATOR_DURATION):
+        if role not in ("extend", "retract"):
+            raise ValueError("role must be 'extend' or 'retract'")
+        if not self.actuator_schedule:
+            print("No actuators configured.")
+            return
+
+        self._actuator_cancel = threading.Event()
+        self.actuator_thread = threading.Thread(
+            target=self._run_actuators, args=(role, duration, self._actuator_cancel)
+        )
+        self.actuator_thread.start()
+
     def stop_sequence(self):
         self.running = False
+        self._actuator_cancel.set()  # cancel any in-flight manual actuator pulse
         pygame.mixer.music.stop()
         for pin in self.all_pins:
             GPIO.output(pin, GPIO.HIGH)
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=0.5)
+        if self.actuator_thread and self.actuator_thread.is_alive():
+            self.actuator_thread.join(timeout=0.5)
 
     def set_all_relays(self, state_on):
         for step in self.gpio_schedule:
@@ -186,7 +207,9 @@ if __name__ == "__main__":
         RELAY_SCHEDULE, ACTUATOR_SCHEDULE, AUDIO_FILE, LIGHTS_ON_DURATION, finale_pin=FINALE_PIN
     )
 
-    print("Controls: '7' = All lights ON, '8' = All lights OFF, '9'/'1' = Play from start")
+    print(
+        "Controls: '7' = All lights ON, '8' = All lights OFF, '9'/'1' = Play from start, '4' = All actuators EXTEND for {MANUAL_ACTUATOR_DURATION}s, '5' = All actuators RETRACT for {MANUAL_ACTUATOR_DURATION}s"
+    )
 
     try:
         while True:
@@ -199,6 +222,14 @@ if __name__ == "__main__":
                 print("Kill sequence + all lights OFF")
                 controller.stop_sequence()
                 controller.set_all_relays(False)
+            elif key == "4":
+                print(f"Kill sequence + all actuators EXTEND for {MANUAL_ACTUATOR_DURATION}s")
+                controller.stop_sequence()
+                controller.activate_actuators("extend", MANUAL_ACTUATOR_DURATION)
+            elif key == "5":
+                print(f"Kill sequence + all actuators RETRACT for {MANUAL_ACTUATOR_DURATION}s")
+                controller.stop_sequence()
+                controller.activate_actuators("retract", MANUAL_ACTUATOR_DURATION)
             elif key in ["9", "1"]:
                 print("Kill everything and restart from start")
                 controller.stop_sequence()
