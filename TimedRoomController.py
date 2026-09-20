@@ -162,6 +162,12 @@ class TimedRoomController:
             for act in self.actuator_schedule
         ]
 
+        for pin in opposite_pins:
+            GPIO.output(pin, GPIO.HIGH)
+
+        for pin in pins:
+            GPIO.output(pin, GPIO.LOW)
+
         if not cancel_event.wait(duration):
             for pin in pins:
                 GPIO.output(pin, GPIO.HIGH)
