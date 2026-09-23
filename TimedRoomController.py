@@ -1,4 +1,4 @@
-import RPi.GPIO as GPIO
+import hybrid_gpio as GPIO   # CHANGED: was "import RPi.GPIO as GPIO"
 import time
 import pygame
 import threading
@@ -18,6 +18,13 @@ AUDIO_FILE = _cfg.AUDIO_FILE
 ACTUATOR_SCHEDULE = getattr(_cfg, "ACTUATOR_SCHEDULE", [])
 LIGHTS_ON_DURATION = getattr(_cfg, "LIGHTS_ON_DURATION", 60)
 FINALE_PIN = getattr(_cfg, "FINALE_PIN", None)
+
+# NEW: master/slave GPIO boards, defined in config (config_default.py / config_local.py)
+SLAVES = getattr(_cfg, "SLAVES", {})
+
+# NEW: register slave boards before anything else touches GPIO. Individual
+# pins declare their own target inline, e.g. ("slave", 5) vs plain 5.
+GPIO.configure(slaves=SLAVES)
 
 # Duration (seconds) for the manual extend-all / retract-all key commands.
 MANUAL_ACTUATOR_DURATION = 10
