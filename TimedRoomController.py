@@ -1,4 +1,4 @@
-import hybrid_gpio as GPIO   # CHANGED: was "import RPi.GPIO as GPIO"
+import HybridGpio as GPIO   # CHANGED: was "import RPi.GPIO as GPIO"
 import time
 import pygame
 import threading
